@@ -1,0 +1,54 @@
+module ArgFuncaoEValRetorno (
+    input wire clk,
+    input wire reset,
+    input wire [7:0] data_in,
+    input wire [2:0] opcode,
+    output reg [7:0] R1, R2, R_ARG, R_RET, flags
+);
+    // Registradores internos
+    reg [7:0] temp_reg;
+    
+    // Flags (ZF - Zero Flag, SF - Sign Flag, OF - Overflow Flag)
+    reg ZF, SF, OF;
+
+    // Operações
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            R1 <= 8'b0;
+            R2 <= 8'b0;
+            R_ARG <= 8'b0;
+            R_RET <= 8'b0;
+            flags <= 8'b0;
+            ZF <= 0;
+            SF <= 0;
+            OF <= 0;
+        end else begin
+            case (opcode)
+                3'b000: // MOV
+                    R1 <= data_in; // Move data to R1
+                3'b001: // ADD
+                    {OF, R1} <= R1 + data_in; // Add to R1
+                3'b010: // SUB
+                    {OF, R1} <= R1 - data_in; // Subtract from R1
+                3'b011: // FUNC_CALL (Simulando Chamada de Função)
+                    R_ARG <= data_in; // Armazenar argumento na função
+                3'b100: // FUNC_RETURN (Simulando Retorno de Função)
+                    R_RET <= R1; // Retorna o valor de R1 como valor da função
+                default: begin
+                    R1 <= R1;
+                end
+            endcase
+            // Flags de comparação (para exemplo de código)
+            if (R1 == 8'b0) begin
+                ZF <= 1;
+            end else begin
+                ZF <= 0;
+            end
+            if (R1[7] == 1) begin
+                SF <= 1;
+            end else begin
+                SF <= 0;
+            end
+        end
+    end
+endmodule
