@@ -1,0 +1,316 @@
+module Decoder(
+    input [7:0] instruction,    // Instrução de 8 bits
+    input [7:0] data_in1,       // Dados de entrada para o registrador R1
+    input [7:0] data_in2,       // Dados de entrada para o registrador R2
+    input [7:0] immediate,      // Valor imediato
+    input [7:0] jump_address,   // Endereço de salto
+    input clk,                  // Clock
+    input reset,                // Reset
+    output reg [7:0] R1,        // Registrador 1
+    output reg [7:0] R2,        // Registrador 2
+    output reg [7:0] flags,     // Registrador de Flags
+  	output reg [7:0] PC,         // Contador de Programa
+    output reg interrupt_flag,   // Flag de interrupção
+    output reg ZF,              // Zero Flag do NorNotNand
+    output reg SF               // Sign Flag do NorNotNand
+);
+
+    // Sinais intermediários
+    wire [7:0] comparador_R1, comparador_R2, comparador_flags;
+    wire [7:0] desloc_R1, desloc_R2, desloc_flags;
+    wire [7:0] log_R1, log_R2, log_flags, log_PC;
+    wire [7:0] saltos_R1, saltos_R2, saltos_flags, saltos_PC;
+    wire [127:0] stack_out;
+    reg [127:0] stack_in;
+
+    // Instância do módulo Comparador
+    Comparador comparador (
+        .instruction(instruction),
+        .data_in1(data_in1),
+        .data_in2(data_in2),
+        .R1(comparador_R1),
+        .R2(comparador_R2),
+        .flags(comparador_flags)
+    );
+
+    // Instância do módulo Deslocamentos
+    Deslocamentos desloc (
+        .instruction(instruction),
+        .immediate(immediate),
+        .data_in(data_in1),
+        .R1(desloc_R1),
+        .R2(desloc_R2),
+        .flags(desloc_flags)
+    );
+
+    // Instância do módulo OperacoesLogicas
+    OperacoesLogicas operacoes_logicas (
+        .instruction(instruction),
+        .data_in1(data_in1),
+        .data_in2(data_in2),
+        .R1(log_R1),
+        .R2(log_R2),
+        .flags(log_flags),
+        .PC(log_PC)
+    );
+
+    // Instância do módulo Saltos_Condicionais
+    SaltosCondicionais saltoscondicionais (
+        .instruction(instruction),
+        .data_in1(data_in1),
+        .data_in2(data_in2),
+        .R1(saltos_R1),
+        .R2(saltos_R2),
+        .flags(saltos_flags),
+        .PC(saltos_PC),
+        .stack_in(stack_in),
+        .stack_out(stack_out)
+    );
+	 // Sinais intermediários para o módulo Outros
+    wire [7:0] outros_R1, outros_R2, outros_flags, outros_PC;
+    wire outros_interrupt_flag;
+	
+    // Instância do módulo Outros
+    Outros outrosinst (
+        .instruction(instruction),
+        .data_in1(data_in1),
+        .data_in2(data_in2),
+        .R1(outros_R1),
+        .R2(outros_R2),
+        .flags(outros_flags),
+        .PC(outros_PC),
+        .interrupt_flag(outros_interrupt_flag)  // Conectando interrupt_flag aqui
+    );
+  	// Sinais intermediários para o módulo NorNotNand
+    wire [7:0] nor_not_nand_R1;
+    wire nor_not_nand_ZF, nor_not_nand_SF;
+
+    // Instância do módulo NorNotNand
+    NorNotNand nor_not_nand_inst (
+        .clk(clk),
+        .reset(reset),
+        .opcode(instruction),  // A instrução pode ser passada como código da operação
+        .R2(data_in2),         // Usando data_in2 como segundo operando
+        .R1(nor_not_nand_R1),  // Resultado da operação
+        .ZF(nor_not_nand_ZF),  // Zero Flag
+        .SF(nor_not_nand_SF)   // Sign Flag
+    );
+    // Sinais intermediários para o módulo VariaveisTemporarias
+    wire [7:0] temp_R1, temp_R2, temp_R_TEMP1, temp_R_TEMP2, temp_flags;
+	VariaveisTemporarias temp_module (
+    .clk(clk),
+    .reset(reset),
+    .data_in(data_in1),         // Conectar data_in1 como entrada de dados
+    .opcode(instruction[2:0]),  // Usar os 3 bits menos significativos como opcode
+    .data_out(),                // Não utilizado no Decoder
+    .R1(temp_R1),               // Conecta ao registrador temporário R1
+    .R2(temp_R2),               // Conecta ao registrador temporário R2
+    .R_TEMP1(temp_R_TEMP1),     // Conecta ao registrador R_TEMP1
+    .R_TEMP2(temp_R_TEMP2),     // Conecta ao registrador R_TEMP2
+    .flags(temp_flags)          // Conecta aos flags temporários
+	);
+	
+  	// Sinais intermediários para o módulo ArgFuncaoEValRetorno
+	wire [7:0] argfuncao_R1, argfuncao_R2, argfuncao_R_ARG, argfuncao_R_RET, argfuncao_flags;
+	// Instância do módulo ArgFuncaoEValRetorno
+    ArgFuncaoEValRetorno argfuncao_inst (
+        .clk(clk),
+        .reset(reset),
+        .data_in(data_in1),         // Conectando data_in1 como entrada de dados
+        .opcode(instruction[2:0]), // Conectando os 3 bits menos significativos da instrução como opcode
+        .R1(argfuncao_R1),
+        .R2(argfuncao_R2),
+        .R_ARG(argfuncao_R_ARG),
+        .R_RET(argfuncao_R_RET),
+        .flags(argfuncao_flags)
+    );
+	
+    // Sinais intermediários para o módulo CacheMemory
+    wire [7:0] cache_read_data;
+    wire cache_hit;
+	// Instância do módulo CacheMemory
+    CacheMemory cache (
+        .clk(clk),
+        .reset(reset),
+        .read(instruction[7]),       // Usa o bit mais significativo da instrução como sinal de leitura
+        .write(instruction[6]),      // Usa o segundo bit mais significativo como sinal de escrita
+        .address(R1),                // Endereço obtido de R1
+        .write_data(data_in1),       // Dados para escrita
+        .read_data(cache_read_data), // Dados lidos
+        .hit(cache_hit)              // Indica se foi um hit
+    );
+
+  	// Sinal para a instrução vinda da memória
+    wire [7:0] memory_instruction;
+    
+     Memory memory_inst (
+        .clk(clk),
+        .reset(reset),
+        .address(PC),            // O PC será o endereço de leitura
+        .instruction(memory_instruction) // A instrução é lida da memória
+    );
+  
+  	// Bloco de controle para a interrupção e outros sinais
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            interrupt_flag <= 0; // Resetando a interrupção
+            ZF <= 0;
+            SF <= 0;
+        end else begin
+            interrupt_flag <= outros_interrupt_flag;  // Atualizando a flag de interrupção
+            ZF <= nor_not_nand_ZF;  // Atualizando a Zero Flag
+            SF <= nor_not_nand_SF;  // Atualizando a Sign Flag
+        end
+    end
+  	// Bloco de controle para a interrupção
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            interrupt_flag <= 0; // Resetando a interrupção
+        end else begin
+            interrupt_flag <= outros_interrupt_flag;  // Atribuindo a flag de interrupção do módulo Outros
+        end
+    end
+    // Atualização da pilha (stack)
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            stack_in <= 128'b0; // Resetando a pilha
+        end else begin
+            stack_in <= stack_out; // Atualiza a pilha
+        end
+    end
+  	
+  	
+	
+    // Decodificação da instrução
+        always @(*) begin
+        // Resetando os registradores de saída
+        R1 = 8'b0;
+        R2 = 8'b0;
+        flags = 8'b0;
+        PC = 8'b0;
+        interrupt_flag = 0;  // Inicializa o interrupt_flag como 0
+        
+        // Decodificando a instrução para selecionar o módulo correto
+        case (instruction)
+            8'b00000001: begin // AND
+                R1 = log_R1;
+                R2 = log_R2;
+                flags = log_flags;
+                PC = log_PC;
+            end
+            8'b00000010: begin // OR
+                R1 = log_R1;
+                R2 = log_R2;
+                flags = log_flags;
+                PC = log_PC;
+            end
+            8'b00000011: begin // NOT
+                R1 = log_R1;
+                R2 = log_R2;
+                flags = log_flags;
+                PC = log_PC;
+            end
+            8'b00000101: begin // XOR
+                R1 = log_R1;
+                R2 = log_R2;
+                flags = log_flags;
+                PC = log_PC;
+            end
+            8'b00000110: begin // CMP
+                R1 = comparador_R1;
+                R2 = comparador_R2;
+                flags = comparador_flags;
+            end
+            8'b00000111: begin // Saltos Condicionais
+                R1 = saltos_R1;
+                R2 = saltos_R2;
+                flags = saltos_flags;
+                PC = saltos_PC;
+            end
+            8'b00001000: begin // JMP
+                // Tratar o JMP
+            end
+            8'b00001001: begin // NOP
+                // Tratar o NOP
+            end
+            8'b00001010: begin // HALT
+                // Tratar o HALT
+            end
+            8'b00001011: begin // IN
+                R1 = outros_R1;
+                R2 = outros_R2;
+                flags = outros_flags;
+                PC = outros_PC;
+            end
+            8'b00001100: begin // OUT
+                R1 = outros_R1;
+                R2 = outros_R2;
+                flags = outros_flags;
+                PC = outros_PC;
+            end
+            8'b00001101: begin // CMP (no módulo Outros)
+                R1 = outros_R1;
+                R2 = outros_R2;
+                flags = outros_flags;
+                PC = outros_PC;
+            end
+            8'b00001110: begin // INT
+                // Configura a interrupção
+                interrupt_flag = outros_interrupt_flag;  // Atualiza o interrupt_flag
+            end
+          	8'b00001001: begin // NAND (Novo módulo NorNotNand)
+                R1 = nor_not_nand_R1;
+                flags = {nor_not_nand_ZF, nor_not_nand_SF};  // Combina as flags ZF e SF
+            end
+            8'b00001010: begin // NOR (Novo módulo NorNotNand)
+                R1 = nor_not_nand_R1;
+                flags = {nor_not_nand_ZF, nor_not_nand_SF};
+            end
+            8'b00001011: begin // XNOR (Novo módulo NorNotNand)
+                R1 = nor_not_nand_R1;
+                flags = {nor_not_nand_ZF, nor_not_nand_SF};
+            end
+          	8'b00110000: begin // Código para operações do módulo VariaveisTemporarias
+            R1 = temp_R1;
+            R2 = temp_R2;
+            flags = temp_flags;
+        	end
+          	8'b00111000: begin // MOV usando ArgFuncaoEValRetorno
+            R1 = argfuncao_R1;
+            flags = argfuncao_flags;
+            end
+            8'b00111001: begin // ADD usando ArgFuncaoEValRetorno
+                R1 = argfuncao_R1;
+                flags = argfuncao_flags;
+            end
+            8'b00111010: begin // SUB usando ArgFuncaoEValRetorno
+                R1 = argfuncao_R1;
+                flags = argfuncao_flags;
+            end
+            8'b00111011: begin // FUNC_CALL usando ArgFuncaoEValRetorno
+                R1 = argfuncao_R1;
+                R2 = argfuncao_R_ARG;
+                flags = argfuncao_flags;
+            end
+            8'b00111100: begin // FUNC_RETURN usando ArgFuncaoEValRetorno
+                R1 = argfuncao_R_RET;
+                flags = argfuncao_flags;
+            end
+          	8'b01000000: begin // Leitura da cache
+                if (cache_hit) begin
+                    R1 = cache_read_data; // Lê dado da cache
+                end else begin
+                    R1 = 8'b0; // Indica um miss
+                end
+            end
+            8'b01000001: begin // Escrita na cache
+                // A lógica de escrita é realizada automaticamente pelo módulo CacheMemory
+                R1 = 8'b0; // Nenhuma ação adicional necessária
+            end
+            default: begin
+                // Nenhuma ação para outras instruções
+            end
+        endcase
+    end
+
+endmodule
