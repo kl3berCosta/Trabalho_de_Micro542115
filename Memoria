@@ -1,0 +1,48 @@
+module Memory (
+    input wire clk,
+    input wire reset,
+    input wire read,                // Sinal para leitura
+    input wire write,               // Sinal para escrita
+    input wire [7:0] address,       // Endereço para leitura/escrita
+    input wire [7:0] write_data,    // Dados a serem escritos
+    output reg [7:0] instruction    // Dados lidos ou instrução
+);
+    // Parâmetro para o tamanho da memória
+    parameter MEMORY_SIZE = 256;
+
+    // Memória: array de registradores de 8 bits
+    reg [7:0] memory_array [0:MEMORY_SIZE-1];
+
+    // Inicialização da memória (somente em simulação)
+    integer i;
+    initial begin
+        for (i = 0; i < MEMORY_SIZE; i = i + 1) begin
+            memory_array[i] = 8'b0; // Inicializa a memória com zeros
+        end
+
+        
+        memory_array[0] = 8'b00000001; 
+        memory_array[1] = 8'b00000010; 
+        memory_array[2] = 8'b00000101; 
+    end
+
+    // Operações de leitura e escrita
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            // Reseta toda a memória
+            for (i = 0; i < MEMORY_SIZE; i = i + 1) begin
+                memory_array[i] <= 8'b0;
+            end
+            instruction <= 8'b0;
+        end else begin
+            if (read) begin
+                // Lê o dado do endereço especificado
+                instruction <= memory_array[address];
+            end
+            if (write) begin
+                // Escreve o dado no endereço especificado
+                memory_array[address] <= write_data;
+            end
+        end
+    end
+endmodule
