@@ -1,0 +1,83 @@
+module SaltosCondicionais(
+    input [7:0] instruction,  // Instrução de 8 bits
+    input [7:0] data_in1,     // Entrada de dados
+    input [7:0] data_in2,     // Segundo dado de entrada (para comparações)
+    output reg [7:0] R1,      // Registrador 1
+    output reg [7:0] R2,      // Registrador 2
+    output [7:0] flags,       // Flags
+    output reg [7:0] PC,      // Program Counter
+    input [127:0] stack_in,   // Pilha como um vetor linear (16 elementos de 8 bits)
+    output reg [127:0] stack_out // Pilha como um vetor linear (16 elementos de 8 bits)
+);
+    // Flags de controle
+    wire ZF, CF, SF; // Zero Flag, Carry Flag, Sign Flag
+    reg [7:0] flags_reg;  // Flags internamente como reg
+    assign flags = flags_reg;  // Atribuindo o valor das flags ao sinal wire
+
+    // Inicialização dos registradores e flags
+    initial begin
+        R1 = 8'b0;
+        R2 = 8'b0;
+        flags_reg = 8'b0;
+        PC = 8'b0;
+        stack_out = 128'b0;
+    end
+
+    // Função para acessar elementos da pilha
+    function [7:0] stack_element;
+        input [127:0] stack_vector;
+        input [3:0] index;
+        stack_element = stack_vector[index * 8 +: 8];
+    endfunction
+
+    // Função para atualizar um elemento da pilha
+    function [127:0] update_stack;
+        input [127:0] stack_vector;
+        input [3:0] index;
+        input [7:0] value;
+        reg [127:0] temp_stack;
+        begin
+            temp_stack = stack_vector;
+            temp_stack[index * 8 +: 8] = value;
+            update_stack = temp_stack;
+        end
+    endfunction
+
+    // Controle de execução das instruções
+    always @ (instruction or data_in1 or data_in2 or flags_reg or stack_in) begin
+        stack_out = stack_in;  // Copia o estado inicial da pilha
+        case (instruction)
+            8'b00000001: begin // JMP (salto incondicional)
+                PC = data_in1;
+            end
+            8'b00000100: begin // JZ (salto se Zero Flag = 1)
+                if (flags_reg[0] == 1) begin  // Zero Flag (ZF)
+                    PC = data_in1;
+                end
+            end
+            8'b00000101: begin // JNZ (salto se Zero Flag = 0)
+                if (flags_reg[0] == 0) begin
+                    PC = data_in1;
+                end
+            end
+            8'b00001000: begin // CMP (comparação)
+                R1 = data_in1;
+                R2 = data_in2;
+                if (R1 == R2) begin
+                    flags_reg[0] = 1;  // ZF = 1 (Zero Flag)
+                    flags_reg[2] = 0;  // SF = 0 (Sem sinal)
+                end else if (R1 < R2) begin
+                    flags_reg[0] = 0;  // ZF = 0
+                    flags_reg[2] = 1;  // SF = 1 (Menor)
+                end else begin
+                    flags_reg[0] = 0;  // ZF = 0
+                    flags_reg[2] = 0;  // SF = 0 (Maior)
+                end
+            end
+            default: begin
+                // Nenhuma instrução conhecida
+                PC = PC;
+            end
+        endcase
+    end
+endmodule
