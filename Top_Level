@@ -1,0 +1,42 @@
+module TopLevel(
+    input clk,
+    input reset
+);
+    // Memória de instruções (256 instruções de 8 bits)
+    reg [7:0] instruction_memory [0:255];
+    reg [7:0] pc;                        // Program Counter
+    wire [7:0] current_instruction;      // Instrução atual
+    wire [7:0] data_in1, data_in2;       // Dados simulados para entrada
+
+    // Instância do Decoder
+    Decoder decoder (
+        .instruction(current_instruction),
+        .data_in1(data_in1),
+        .data_in2(data_in2),
+        .clk(clk),
+        .reset(reset)
+    );
+
+    // Lê a instrução atual com base no PC
+    assign current_instruction = instruction_memory[pc];
+
+    // Inicialização e leitura do arquivo .bin
+    initial begin
+        $readmemb("instructions.bin", instruction_memory); // Carrega instruções
+        pc = 0;
+    end
+
+    // Controle de execução e PC
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            pc <= 0;                     // Reseta o PC
+        end else begin
+            pc <= pc + 1;                // Avança o PC
+        end
+    end
+
+    // Monitoramento do TopLevel
+    initial begin
+        $monitor("Time: %0t | PC: %h | Instruction: %b", $time, pc, current_instruction);
+    end
+endmodule
