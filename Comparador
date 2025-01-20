@@ -1,0 +1,46 @@
+module Comparador(
+    input [7:0] instruction,   // Instrução de 8 bits
+    input [7:0] data_in1,      // Dados de entrada para o registrador R1
+    input [7:0] data_in2,      // Dados de entrada para o registrador R2
+    output reg [7:0] R1,       // Registrador 1
+    output reg [7:0] R2,       // Registrador 2
+    output reg [7:0] flags     // Registrador de Flags
+);
+
+    // Bits do registrador de flags
+    localparam ZF = 0; // Zero Flag
+    localparam SF = 2; // Sign Flag
+
+    // Inicialização dos registradores
+    initial begin
+        R1 = 8'b0;
+        R2 = 8'b0;
+        flags = 8'b0;
+    end
+
+    // Decodificação e execução das instruções
+    always @(*) begin
+        // Resetar as flags para cada nova instrução
+        flags = 8'b0;
+
+        case (instruction)
+            8'b00000100: begin // CMP R1, R2
+                // Subtração sem alterar R1 ou R2
+                if (data_in1 == data_in2) begin
+                    flags[ZF] = 1'b1; // Zero Flag: R1 == R2
+                end
+                else if (data_in1 < data_in2) begin
+                    flags[SF] = 1'b1; // Sign Flag: R1 < R2
+                end
+                else begin
+                    flags[SF] = 1'b0; // Sign Flag: R1 > R2
+                end
+            end
+
+            default: begin
+                R1 = data_in1;
+                R2 = data_in2;
+            end
+        endcase
+    end
+endmodule
