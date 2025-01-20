@@ -1,0 +1,53 @@
+module CacheMemory (
+    input clk,
+    input reset,
+    input read,
+    input write,
+    input [7:0] address,
+    input [7:0] write_data,
+    output reg [7:0] read_data,
+    output reg hit
+);
+    parameter CACHE_SIZE = 4;
+
+    // Cada linha da cache
+    reg valid [0:CACHE_SIZE-1];
+    reg [5:0] tag [0:CACHE_SIZE-1];
+    reg [7:0] data [0:CACHE_SIZE-1];
+
+    wire [1:0] index;
+    wire [5:0] addr_tag;
+
+    assign index = address[1:0]; // Usa os 2 LSBs como índice
+    assign addr_tag = address[7:2]; // Usa os 6 MSBs como tag
+
+    integer i;
+
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            for (i = 0; i < CACHE_SIZE; i = i + 1) begin
+                valid[i] <= 0;
+                tag[i] <= 6'b0;
+                data[i] <= 8'b0;
+            end
+        end else begin
+            if (read) begin
+                // Verifica hit
+                if (valid[index] && tag[index] == addr_tag) begin
+                    read_data <= data[index];
+                    hit <= 1;
+                end else begin
+                    read_data <= 8'b0;
+                    hit <= 0;
+                end
+            end
+
+            if (write) begin
+                // Atualiza linha da cache
+                valid[index] <= 1;
+                tag[index] <= addr_tag;
+                data[index] <= write_data;
+            end
+        end
+    end
+endmodule
