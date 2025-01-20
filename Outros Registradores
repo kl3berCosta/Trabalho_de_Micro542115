@@ -1,0 +1,66 @@
+module Outros(
+    input [7:0] instruction,  // Instrução de 8 bits
+    input [7:0] data_in1,     // Dado de entrada (por exemplo, para IN ou endereço)
+    input [7:0] data_in2,     // Segundo dado de entrada (para comparações)
+    output reg [7:0] R1,      // Registrador 1
+    output reg [7:0] R2,      // Registrador 2
+    output reg [7:0] flags,   // Flags
+    output reg [7:0] PC,      // Program Counter
+    output reg interrupt_flag  // Flag de interrupção
+);
+
+    // Constantes
+    `define MAX_STACK_SIZE 16
+  	
+  	// Declarar a pilha como registrador interno
+    reg [7:0] stack [0:`MAX_STACK_SIZE-1]; // Pilha interna
+
+    // Inicialização
+    initial begin
+        R1 = 8'b0;
+        R2 = 8'b0;
+        flags = 8'b0;
+        PC = 8'b0;
+        interrupt_flag = 0;
+    end
+
+    // Controle de execução das instruções
+    always @ (instruction or data_in1 or data_in2) begin
+        case (instruction)
+            8'b00000001: begin // JMP (salto incondicional)
+                PC = data_in1;
+            end
+            8'b00000010: begin // NOP (No Operation)
+                // Não faz nada
+            end
+            8'b00000011: begin // HALT (Finaliza a execução)
+                $display("Execução interrompida. HALT.");
+                $finish; // Finaliza a simulação
+            end
+            8'b00000100: begin // IN (Leitura de dados)
+                R1 = data_in1; // Simula uma leitura de um dispositivo de entrada
+            end
+            8'b00000101: begin // OUT (Escrita de dados)
+                $display("Saída de dados: %b", data_in1); // Simula a saída de dados
+            end
+            8'b00001000: begin // CMP (Comparação)
+                R1 = data_in1;
+                R2 = data_in2;
+                if (R1 == R2) begin
+                    flags[0] = 1;  // ZF = 1 (Zero Flag)
+                end else begin
+                    flags[0] = 0;  // ZF = 0
+                end
+            end
+            8'b00001001: begin // INT (Chamada de Interrupção)
+                interrupt_flag = 1;
+                // Simula o comportamento de uma interrupção
+                $display("Interrupção chamada. Vetor de interrupção acionado.");
+            end
+            default: begin
+                // Nenhuma instrução conhecida
+                PC = PC;
+            end
+        endcase
+    end
+endmodule
