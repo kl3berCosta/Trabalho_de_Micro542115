@@ -1,0 +1,57 @@
+module VariaveisTemporarias (
+    input clk,
+    input reset,
+    input [7:0] data_in,    // Dados de entrada
+    input [2:0] opcode,     // Código da operação (MOV, ADD, SUB, etc.)
+    output reg [7:0] data_out, // Dados de saída
+    output reg [7:0] R1,    // Registrador 1
+    output reg [7:0] R2,    // Registrador 2
+    output reg [7:0] R_TEMP1, // Registrador temporário 1
+    output reg [7:0] R_TEMP2, // Registrador temporário 2
+    output reg [7:0] flags  // Flags do processador (ex.: ZF, SF)
+);
+
+    // Código da operação de reset
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            R1 <= 8'b00000000;
+            R2 <= 8'b00000000;
+            R_TEMP1 <= 8'b00000000; // Inicializando R_TEMP1
+            R_TEMP2 <= 8'b00000000; // Inicializando R_TEMP2
+            flags <= 8'b00000000;
+        end
+    end
+
+    // Lógica das operações
+    always @(posedge clk) begin
+        case (opcode)
+            3'b000: begin // MOV (Movimentação de dados)
+                R1 <= data_in;   // Mover dado de entrada para R1
+            end
+
+            3'b001: begin // ADD (Soma)
+                R_TEMP1 <= R1 + R2;  // Armazenar o resultado em R_TEMP1
+                R1 <= R_TEMP1;       // Mover o resultado para R1
+            end
+
+            3'b010: begin // SUB (Subtração)
+                R_TEMP1 <= R1 - R2;  // Armazenar o resultado em R_TEMP1
+                R1 <= R_TEMP1;       // Mover o resultado para R1
+            end
+
+            3'b011: begin // MUL (Multiplicação)
+                R_TEMP1 <= R1 * R2;  // Armazenar o resultado em R_TEMP1
+                R1 <= R_TEMP1;       // Mover o resultado para R1
+            end
+
+            3'b100: begin // DIV (Divisão)
+                R_TEMP1 <= R1 / R2;  // Armazenar o resultado em R_TEMP1
+                R2 <= R1 % R2;       // Armazenar o resto em R2
+                R1 <= R_TEMP1;       // Mover o resultado para R1
+            end
+
+            default: ;
+        endcase
+    end
+
+endmodule
