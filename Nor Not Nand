@@ -1,0 +1,43 @@
+module NorNotNand(
+    input wire clk,
+    input wire reset,
+    input wire [7:0] opcode, // Código da instrução
+    input wire [7:0] R2,     // Segundo operando
+    output reg [7:0] R1,     // Primeiro operando (resultado)
+    output reg ZF,           // Zero Flag
+    output reg SF            // Sign Flag
+);
+
+// Inicializa os registradores
+always @(posedge clk or posedge reset) begin
+    if (reset) begin
+        R1 <= 8'b00000000;
+        ZF <= 0;
+        SF <= 0;
+    end else begin
+        case (opcode)
+            8'b00001001: begin // NAND
+                R1 <= ~(R1 & R2);
+                ZF <= (R1 == 8'b00000000); // ZF = 1 se R1 == 0
+                SF <= R1[7];              // SF = bit mais significativo
+            end
+            8'b00001010: begin // NOR
+                R1 <= ~(R1 | R2);
+                ZF <= (R1 == 8'b00000000);
+                SF <= R1[7];
+            end
+            8'b00001011: begin // XNOR
+                R1 <= ~(R1 ^ R2);
+                ZF <= (R1 == 8'b00000000);
+                SF <= R1[7];
+            end
+            default: begin
+                R1 <= R1; // Mantém o valor atual
+                ZF <= ZF;
+                SF <= SF;
+            end
+        endcase
+    end
+end
+
+endmodule
