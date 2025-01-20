@@ -1,0 +1,71 @@
+module Deslocamentos(
+    input [7:0] instruction,   // Instrução de 8 bits
+    input [7:0] immediate,     // Valor imediato (se necessário)
+    input [7:0] data_in,       // Dados de entrada para os registradores
+    output reg [7:0] R1,       // Registrador 1
+    output reg [7:0] R2,       // Registrador 2
+    output reg [7:0] flags     // Registrador de Flags
+);
+
+    // Bits do registrador de flags
+    localparam ZF = 0; // Zero Flag
+    localparam CF = 1; // Carry Flag
+    localparam SF = 2; // Sinal
+    localparam PF = 3; // Paridade
+
+    // Inicialização dos registradores
+    initial begin
+        R1 = 8'b0;
+        R2 = 8'b0;
+        flags = 8'b0;
+    end
+
+    // Decodificação e execução das instruções
+    always @(*) begin
+        // Resetar os flags
+        flags = 8'b0;
+
+        case (instruction)
+            8'b00001000: begin // MOV R1, R2
+                R1 = R2;
+            end
+            8'b00001001: begin // MOV R1, IMM
+                R1 = immediate;
+            end
+            8'b00000011: begin // AND R1, R2
+                R1 = R1 & R2;
+                flags[ZF] = (R1 == 8'b0);
+                flags[SF] = R1[7];
+                flags[PF] = ~^R1;
+            end
+            8'b00000100: begin // OR R1, R2
+                R1 = R1 | R2;
+                flags[ZF] = (R1 == 8'b0);
+                flags[SF] = R1[7];
+                flags[PF] = ~^R1;
+            end
+            8'b00010000: begin // SHL R1 (Deslocamento à esquerda)
+                {flags[CF], R1} = R1 << 1;
+                flags[ZF] = (R1 == 8'b0);
+                flags[SF] = R1[7];
+                flags[PF] = ~^R1;
+            end
+            8'b00010001: begin // SHR R1 (Deslocamento à direita)
+                {R1, flags[CF]} = {1'b0, R1} >> 1;
+                flags[ZF] = (R1 == 8'b0);
+                flags[SF] = R1[7];
+                flags[PF] = ~^R1;
+            end
+            8'b00011000: begin // BITSET R1, n
+                R1 = R1 | (1 << immediate[2:0]); // Define o bit indicado pelos 3 LSBs do imediato
+            end
+            8'b00011001: begin // BITCLR R1, n
+                R1 = R1 & ~(1 << immediate[2:0]); // Limpa o bit indicado pelos 3 LSBs do imediato
+            end
+            default: begin // Instrução inválida
+                R1 = 8'b0;
+            end
+        endcase
+    end
+
+endmodule
